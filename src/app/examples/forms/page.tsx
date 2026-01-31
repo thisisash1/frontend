@@ -10,25 +10,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
-// Zod 스키마로 폼 검증 정의
+// Zod 스키마
 const formSchema = z.object({
   name: z.string()
     .min(2, { message: '이름은 최소 2자 이상이어야 합니다.' })
     .max(50, { message: '이름은 50자 이하여야 합니다.' }),
   email: z.string()
     .email({ message: '유효한 이메일 주소를 입력해주세요.' }),
-  phone: z.string()
-    .regex(/^[0-9\-]{10,}$/, { message: '유효한 전화번호 형식으로 입력해주세요.' })
-    .optional()
-    .or(z.literal('')),
-  age: z.coerce.number()
-    .min(18, { message: '나이는 18세 이상이어야 합니다.' })
-    .max(120, { message: '나이는 120세 이하여야 합니다.' })
-    .optional(),
-  bio: z.string()
-    .max(500, { message: '자기소개는 500자 이하여야 합니다.' })
-    .optional()
-    .or(z.literal('')),
+  phone: z.string().optional(),
+  age: z.number().optional(),
+  bio: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -36,26 +27,65 @@ type FormData = z.infer<typeof formSchema>;
 export default function FormsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedData, setSubmittedData] = useState<FormData | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset,
-  } = useForm<FormData>({
-    resolver: zodResolver(formSchema),
-    mode: 'onChange', // 실시간 검증
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    age: '',
+    bio: '',
   });
 
-  // 폼 제출 핸들러
-  const onSubmit = async (data: FormData) => {
+  // 검증 함수
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.name || formData.name.length < 2) {
+      newErrors.name = '이름은 최소 2자 이상이어야 합니다.';
+    }
+    if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = '유효한 이메일 주소를 입력해주세요.';
+    }
+    if (formData.phone && !/^[0-9\-]{10,}$/.test(formData.phone)) {
+      newErrors.phone = '유효한 전화번호 형식으로 입력해주세요.';
+    }
+    if (formData.age && (parseInt(formData.age) < 18 || parseInt(formData.age) > 120)) {
+      newErrors.age = '나이는 18~120 사이여야 합니다.';
+    }
+    if (formData.bio && formData.bio.length > 500) {
+      newErrors.bio = '자기소개는 500자 이하여야 합니다.';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // 폼 제출
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!validateForm()) {
+      toast.error('입력값을 확인해주세요.');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       // API 호출 시뮬레이션
       await new Promise(resolve => setTimeout(resolve, 1000));
-      setSubmittedData(data);
+
+      const submitData: FormData = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone || undefined,
+        age: formData.age ? parseInt(formData.age) : undefined,
+        bio: formData.bio || undefined,
+      };
+
+      setSubmittedData(submitData);
       toast.success('폼이 성공적으로 제출되었습니다!');
-      reset();
+      setFormData({ name: '', email: '', phone: '', age: '', bio: '' });
     } catch (error) {
       toast.error('폼 제출 중 오류가 발생했습니다.');
     } finally {
@@ -80,18 +110,19 @@ export default function FormsPage() {
               <CardDescription>모든 필드는 실시간으로 검증됩니다.</CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-6">
                 {/* 이름 입력 */}
                 <div className="space-y-2">
                   <Label htmlFor="name">이름 *</Label>
                   <Input
                     id="name"
                     placeholder="홍길동"
-                    {...register('name')}
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className={errors.name ? 'border-red-500' : ''}
                   />
                   {errors.name && (
-                    <p className="text-sm text-red-500">{errors.name.message}</p>
+                    <p className="text-sm text-red-500">{errors.name}</p>
                   )}
                 </div>
 
@@ -102,11 +133,12 @@ export default function FormsPage() {
                     id="email"
                     type="email"
                     placeholder="example@email.com"
-                    {...register('email')}
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     className={errors.email ? 'border-red-500' : ''}
                   />
                   {errors.email && (
-                    <p className="text-sm text-red-500">{errors.email.message}</p>
+                    <p className="text-sm text-red-500">{errors.email}</p>
                   )}
                 </div>
 
@@ -116,11 +148,12 @@ export default function FormsPage() {
                   <Input
                     id="phone"
                     placeholder="010-1234-5678"
-                    {...register('phone')}
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className={errors.phone ? 'border-red-500' : ''}
                   />
                   {errors.phone && (
-                    <p className="text-sm text-red-500">{errors.phone.message}</p>
+                    <p className="text-sm text-red-500">{errors.phone}</p>
                   )}
                 </div>
 
@@ -131,11 +164,12 @@ export default function FormsPage() {
                     id="age"
                     type="number"
                     placeholder="30"
-                    {...register('age')}
+                    value={formData.age}
+                    onChange={(e) => setFormData({ ...formData, age: e.target.value })}
                     className={errors.age ? 'border-red-500' : ''}
                   />
                   {errors.age && (
-                    <p className="text-sm text-red-500">{errors.age.message}</p>
+                    <p className="text-sm text-red-500">{errors.age}</p>
                   )}
                 </div>
 
@@ -145,14 +179,15 @@ export default function FormsPage() {
                   <textarea
                     id="bio"
                     placeholder="자신을 소개해주세요"
-                    {...register('bio')}
+                    value={formData.bio}
+                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                     className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       errors.bio ? 'border-red-500' : ''
                     }`}
                     rows={4}
                   />
                   {errors.bio && (
-                    <p className="text-sm text-red-500">{errors.bio.message}</p>
+                    <p className="text-sm text-red-500">{errors.bio}</p>
                   )}
                 </div>
 

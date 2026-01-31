@@ -43,7 +43,7 @@ async function apiClient<T>(
     // 네트워크 에러 등
     throw new ApiError(
       0,
-      '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.',
+      '네트워크 오류가 발생했습니다. 오류를 확인해주세요.',
       error
     );
   }
